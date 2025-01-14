@@ -36,6 +36,18 @@ wget run https://raw.githubusercontent.com/DarThunder/iDar-CryptoLib/refs/heads/
   1. Use require("idar-cl") to load the library into your ComputerCraft programs.
 
 ## Usage
+### AES
+```lua
+local aes = require("idar-cl.aes")
+
+-- Encrypt and decrypt
+local key = "securepassword123"
+local data = "Sensitive information"
+local encrypted = aes.encrypt(data, key)
+local decrypted = aes.decrypt(encrypted, key)
+
+print(decrypted) -- Output: Sensitive information
+```
 ### RSA
 ```lua
 local rsa = require("idar-cl.rsa")
@@ -48,18 +60,6 @@ local encrypted = rsa.encrypt("Hello, world!", publicKey)
 local decrypted = rsa.decrypt(encrypted, privateKey)
 
 print(decrypted) -- Output: Hello, world!
-```
-### AES
-```lua
-local aes = require("idar-cl.aes")
-
--- Encrypt and decrypt
-local key = "securepassword123"
-local data = "Sensitive information"
-local encrypted = aes.encrypt(data, key)
-local decrypted = aes.decrypt(encrypted, key)
-
-print(decrypted) -- Output: Sensitive information
 ```
 ### SHA256
 ```lua
