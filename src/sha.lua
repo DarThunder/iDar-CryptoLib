@@ -24,7 +24,7 @@ local K = {
 }
 
 local function rightRotate(value, bits)
-    return bit.bor(bit.rshift(value, bits), bit.lshift(value, 32 - bits))
+    return bit.bor(bit.brshift(value, bits), bit.blshift(value, 32 - bits))
 end
 
 local function sha256Compress(chunk, H_copy)
@@ -33,8 +33,8 @@ local function sha256Compress(chunk, H_copy)
         W[i] = chunk[i] or 0
     end
     for i = 17, 64 do
-        local s0 = bit.bxor(rightRotate(W[i-15], 7), rightRotate(W[i-15], 18), bit.rshift(W[i-15], 3))
-        local s1 = bit.bxor(rightRotate(W[i-2], 17), rightRotate(W[i-2], 19), bit.rshift(W[i-2], 10))
+        local s0 = bit.bxor(rightRotate(W[i-15], 7), rightRotate(W[i-15], 18), bit.brshift(W[i-15], 3))
+        local s1 = bit.bxor(rightRotate(W[i-2], 17), rightRotate(W[i-2], 19), bit.brshift(W[i-2], 10))
         W[i] = (W[i-16] + s0 + W[i-7] + s1) % 0x100000000
     end
 

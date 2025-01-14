@@ -1,5 +1,4 @@
-local bit = require("bit32")
-local sha = require("/protocol/lib/cipher/sha256")
+local sha = require("idar-cl.sha")
 
 local aes = {}
 
@@ -104,11 +103,11 @@ local function gmul(a, b)
             returnValue = bit.bxor(returnValue, b)
         end
         temp = bit.band(b, 0x80)
-        b = bit.lshift(b, 1)
+        b = bit.blshift(b, 1)
         if temp ~= 0 then
             b = bit.bxor(b, 0x1b)
         end
-        a = bit.rshift(bit.band(a, 0xff), 1)
+        a = bit.brshift(bit.band(a, 0xff), 1)
     end
     return bit.band(returnValue, 0xff)
 end
