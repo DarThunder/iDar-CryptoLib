@@ -4,11 +4,12 @@ iDar CryptoLib is a cryptography-focused library that implements powerful and re
 
 ## Table of Contents
 - [Features](#features)
-- [Installation](#installation)
+- [Getting started](#getting-started)
 - [Usage](#usage)
   - [AES](#aes)
   - [RSA](#rsa)
   - [SHA256](#sha256)
+- [FAQ](#faq)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -70,7 +71,6 @@ local hash = sha.sha256("Hello, world!")
 print(hash) -- Output: a SHA-256 hash of the input
 ```
 ## FAQ
-
 - Q: What happens if I lose my private key?
 - A: Unfortunately, if you lose your private key, you won't be able to decrypt any data encrypted with the corresponding public key. Make sure to back up your keys securely.
 
