@@ -14,7 +14,7 @@ iDar CryptoLib is a cryptography-focused library that implements powerful and re
 - [License](#license)
 
 ## Features
-- RSA encryption and decryption
+- RSA encryption and decryption (WIP)
 - AES block cipher implementation
 - SHA-256 hashing algorithm
 - Lightweight and optimized for ComputerCraft: Tweaked
@@ -50,6 +50,7 @@ local decrypted = aes.decrypt(encrypted, key)
 print(decrypted) -- Output: Sensitive information
 ```
 ### RSA
+it's under development, but this is the final syntax! (maybe, idk)
 ```lua
 local rsa = require("idar-cl.rsa")
 
@@ -76,9 +77,6 @@ print(hash) -- Output: a SHA-256 hash of the input
 
 - Q: Can I use this library with other mods?
 - A: Yes, as long as the other mods are compatible with ComputerCraft and Lua, iDar CryptoLib should work seamlessly.
-
-- Q: Is there a way to extend the library with new algorithms?
-- A: Absolutely! The library is designed to be modular, so you can add your own cryptographic functions by following the structure of the existing modules.
 
 ## Contributing
 Contributions are welcome! Please follow these steps:
