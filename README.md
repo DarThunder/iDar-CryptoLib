@@ -75,7 +75,7 @@ print(hash) -- Output: a SHA-256 hash of the input
 - A: Unfortunately, if you lose your private key, you won't be able to decrypt any data encrypted with the corresponding public key. Make sure to back up your keys securely.
 
 - Q: Can I use this library with other mods?
-A: Yes, as long as the other mods are compatible with ComputerCraft and Lua, iDar CryptoLib should work seamlessly.
+- A: Yes, as long as the other mods are compatible with ComputerCraft and Lua, iDar CryptoLib should work seamlessly.
 
 - Q: Is there a way to extend the library with new algorithms?
 - A: Absolutely! The library is designed to be modular, so you can add your own cryptographic functions by following the structure of the existing modules.
