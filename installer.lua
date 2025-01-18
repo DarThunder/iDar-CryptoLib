@@ -1,3 +1,5 @@
+if not fs.exists("idar-bn/") then printError("To use iDar-CryptoLib please install `iDar-BigNum`") error("missing dependencies") end
+
 local idarClibUrl = "https://raw.githubusercontent.com/DarThunder/iDar-CryptoLib/refs/heads/main/src/"
 local installDir = "idar-cl/"
 
@@ -43,7 +45,8 @@ end
 local modules = {
     "aes",
     "rsa",
-    "sha"
+    "sha",
+    "chacha20"
 }
 
 ensureDirectory(installDir)

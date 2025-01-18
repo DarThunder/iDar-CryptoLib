@@ -244,7 +244,7 @@ function aes.encrypt(message, secret)
         iv = iv .. string.char(math.random(0, 255))
     end
 
-    local fillLength = 16 - (#message % 16)
+    local fillLength = (16 - (#message % 16)) % 16
     message = message .. string.rep(string.char(fillLength), fillLength)
 
     local blocks = {}
