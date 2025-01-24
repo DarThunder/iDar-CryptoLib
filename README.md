@@ -50,7 +50,6 @@ local decrypted = aes.decrypt(encrypted, key)
 print(decrypted) -- Output: Sensitive information
 ```
 ### RSA
-it's under development, but this is the final syntax! (maybe, idk)
 ```lua
 local rsa = require("idar-cl.rsa")
 
