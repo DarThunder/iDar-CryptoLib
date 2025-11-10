@@ -1,4 +1,4 @@
-local sha = require("sha")
+local sha = require("idar-cl.sha")
 
 local aes = {}
 
