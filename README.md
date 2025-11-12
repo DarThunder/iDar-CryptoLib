@@ -24,7 +24,7 @@ iDar-CryptoLib is a comprehensive cryptography library that implements powerful 
 - **ChaCha20**: Modern stream cipher with parallel processing
 - **RSA**: Asymmetric encryption with CRT optimization
 - **SHA-256**: Cryptographic hashing algorithm
-- **secp256k1**: Elliptic curve cryptography (ECDH key exchange)
+- **secp256k1**: Elliptic curve cryptography (ECDH key exchange & ECDSA)
 - Lightweight and optimized for ComputerCraft: Tweaked
 - Modular and extensible design
 
@@ -55,10 +55,11 @@ wget run https://raw.githubusercontent.com/DarThunder/iDar-CryptoLib/refs/heads/
 ```lua
 local aes = require("idar-cl.aes")
 
--- Encrypt and decrypt
-local key = "superduperultrasecretkey123"
+-- AES-CBC encryption/decryption example
+local key = "676767" -- don't matter the size of the key, it will be derived anyway lol
 local data = "Sensitive information"
-local encrypted = aes.cbc_encrypt(data, key)
+local iv = aes.generate_iv() -- 16 random bytes
+local encrypted = aes.cbc_encrypt(data, key, iv)
 local decrypted = aes.cbc_decrypt(encrypted, key)
 
 print(decrypted) -- Output: Sensitive information
@@ -99,8 +100,19 @@ print(decrypted) -- Output: Secret message
 local sha = require("idar-cl.sha")
 
 -- Hash a string
-local hash = sha.sha256("Hello, world!")
-print(hash) -- Output: 64ec88ca00b268e5ba1a35678a1b5316d212f4f366b2477232534a8aeca37f3c
+local message = "Hello, world!"
+local hash_hex, hash_bin = sha.sha256(message)
+print(hash_hex) -- Output: 315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3
+print(hash_bin) -- Output: (binary data)
+
+local secret = "mango"
+local hmac_digest = sha.hmac_sha256(secret, message)
+
+print("Message:", message) -- Output: Hello, world!
+print("HMAC:", hmac_digest) -- Output: 1534f334fbe2c72667f632c7f77e1b8b627375dc9502b49f040d80794b2a67ab
+
+local hmac_digest_bin = sha.hmac_sha256(secret, message, true)
+print("HMAC BIN:", hmac_digest_bin) -- Output: (binary data)
 ```
 
 ### secp256k1
@@ -119,7 +131,19 @@ local pubB = ecc.getPublicKey(privB)
 local secretA = ecc.getSharedSecret(privA, pubB)
 local secretB = ecc.getSharedSecret(privB, pubA)
 
-print(secretA:toString() == secretB:toString()) -- Output: true
+print(secretA == secretB) -- Output: true
+local message = "tung tung tung sahur ta ta ta sahur"
+os.sleep(10) -- a very neccessary sleep if you don't want to burn your cpu lol
+
+-- sign example
+local sign = ecc.sign(privA, message)
+print("R = " .. sign.r) -- R
+print("S = " .. sign.s) -- S
+os.sleep(10) -- another small pause to keep the CPU cool :)
+
+-- verify example
+local verify = ecc.verify(pubA, message, sign)
+print("Result: ", verify.result, "\nMessage: ", verify.message) --Output true, Signature verification result
 ```
 
 ## Security Notes
@@ -144,7 +168,7 @@ A: Yes, as long as the other mods are compatible with ComputerCraft and Lua, iDa
 A: ComputerCraft has performance limitations. Generating large RSA keys (1024+ bits) would be extremely slow. We recommend 32-128 bits for practical use.
 
 **Q: Is this library cryptographically secure?**  
-A: While the algorithms are correctly implemented, the execution environment (ComputerCraft) and randomness sources may not provide enterprise-level security. (It's a Minecraft mod for God's sake)
+A: While the algorithms are correctly implemented, the execution environment (ComputerCraft) and randomness sources may not provide enterprise-level security. (It's a library on pure Lua for a Minecraft mod for God's sake)
 
 ## Contributing
 

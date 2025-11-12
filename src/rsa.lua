@@ -14,9 +14,9 @@ local MILLER_RABIN_BASES = {TWO, THREE, FIVE, SEVEN, ELEVEN}
 
 math.randomseed(os.time() + tonumber(tostring(os.clock()):reverse():sub(1, 5)))
 
-local _smallPrimesCache = nil
+local _small_primes_cache = nil
 
-local function generateSmallPrimes(limit)
+local function generate_small_primes(limit)
     limit = limit or 2000
 
     local sieve_limit = 17400
@@ -54,14 +54,14 @@ local function generateSmallPrimes(limit)
     return bignum_primes
 end
 
-local function getSmallPrimes()
-    if not _smallPrimesCache then
-        _smallPrimesCache = generateSmallPrimes(2000)
+local function get_small_primes()
+    if not _small_primes_cache then
+        _small_primes_cache = generate_small_primes(2000)
     end
-    return _smallPrimesCache
+    return _small_primes_cache
 end
 
-local function isSieved(n, sieve)
+local function is_sieved(n, sieve)
     for _, p in ipairs(sieve) do
         if n % p == ZERO then
             return true
@@ -70,7 +70,7 @@ local function isSieved(n, sieve)
     return false
 end
 
-local function generateRandomBits(n)
+local function generate_random_bits(n)
     if n < 2 then error("It needs at least 2 bits", 2) end
     local bits = {}
 
@@ -84,41 +84,41 @@ local function generateRandomBits(n)
     return ZERO.fromBinary(table.concat(bits))
 end
 
-local function millerRabin(n)
+local function miller_rabin(n)
     if n == TWO or n == THREE or n == FIVE or n == SEVEN or n == ELEVEN then return true end
     if n < TWO or n % TWO == ZERO then return false end
 
-    local nMinusOne = n - ONE
+    local n_minus_one = n - ONE
 
     local s = ZERO
-    local d = nMinusOne
+    local d = n_minus_one
     while d % TWO == ZERO do
         d = d / TWO
         s = s + ONE
     end
 
     for _, a in ipairs(MILLER_RABIN_BASES) do
-        if a < nMinusOne then 
+        if a < n_minus_one then
             local x = a:modExp(d, n)
 
-            if x ~= ONE and x ~= nMinusOne then
-                local isComposite = true
-                local sMinusOne = s - ONE
+            if x ~= ONE and x ~= n_minus_one then
+                local is_composite = true
+                local s_minus_one = s - ONE
                 local i = ZERO
 
-                while i < sMinusOne do
+                while i < s_minus_one do
                     x = x:modExp(TWO, n)
                     if x == ONE then
                         return false
                     end
-                    if x == nMinusOne then
-                        isComposite = false
+                    if x == n_minus_one then
+                        is_composite = false
                         break
                     end
                     i = i + ONE
                 end
 
-                if isComposite then
+                if is_composite then
                     return false
                 end
             end
@@ -128,24 +128,24 @@ local function millerRabin(n)
     return true
 end
 
-local function generatePrime(bits)
-    local sieve = getSmallPrimes()
+local function generate_prime(bits)
+    local sieve = get_small_primes()
     local results = {}
 
-    local function findSinglePrimeTask(pos)
-        local candidate = generateRandomBits(bits)
+    local function find_single_prime_task(pos)
+        local candidate = generate_random_bits(bits)
         if candidate % TWO == ZERO then
             candidate = candidate + ONE
         end
 
-        local bitLength = candidate:bitLength()
+        local bit_length = candidate:bitLength()
 
         while true do
             os.sleep(0)
 
-            if not isSieved(candidate, sieve) then
+            if not is_sieved(candidate, sieve) then
 
-                if millerRabin(candidate) then
+                if miller_rabin(candidate) then
                     results[pos] = candidate
                     return
                 end
@@ -154,8 +154,8 @@ local function generatePrime(bits)
 
             candidate = candidate + TWO
 
-            if candidate:bitLength() > bitLength then
-                candidate = generateRandomBits(bits)
+            if candidate:bitLength() > bit_length then
+                candidate = generate_random_bits(bits)
                 if candidate % TWO == ZERO then
                     candidate = candidate + ONE
                 end
@@ -164,14 +164,14 @@ local function generatePrime(bits)
     end
 
     parallel.waitForAll(function ()
-        findSinglePrimeTask(1) end, function ()
-        findSinglePrimeTask(2) end)
+        find_single_prime_task(1) end, function ()
+        find_single_prime_task(2) end)
         
     local p = results[1]
     local q = results[2]
 
     while p == q do
-        q = findSinglePrimeTask()
+        q = find_single_prime_task()
     end
 
     return p, q
@@ -184,19 +184,19 @@ local function gcd(x, y)
     return x
 end
 
-local function gcdExtended(a, b)
+local function gcd_extended(a, b)
     if b == ZERO then
         return a, ONE, ZERO
     end
-    local g, x1, y1 = gcdExtended(b, a % b)
+    local g, x1, y1 = gcd_extended(b, a % b)
     local x = y1
     local y = x1 - (a / b) * y1
 
     return g, x, y
 end
 
-local function modularInverse(a, m)
-    local g, x, _ = gcdExtended(a, m)
+local function modular_inverse(a, m)
+    local g, x, _ = gcd_extended(a, m)
     if g ~= ONE then
         return nil
     end
@@ -208,28 +208,28 @@ local function modularInverse(a, m)
     return x % m
 end
 
-local function generatePublicKey(phiN)
+local function generate_public_key(phi_N)
     local e = bignum("65537")
-    if gcd(phiN, e) == ONE then
+    if gcd(phi_N, e) == ONE then
         return e
     end
     error("Failed to find public exponent")
 end
 
-function rsa.generateKeys(bits)
-    getSmallPrimes()
-    local p, q = generatePrime(bits)
+function rsa.generate_keys(bits)
+    get_small_primes()
+    local p, q = generate_prime(bits)
 
     local n = p * q
-    local phiN = (p - ONE) * (q - ONE)
+    local phi_N = (p - ONE) * (q - ONE)
 
-    local e = generatePublicKey(phiN)
+    local e = generate_public_key(phi_N)
     if not e then
         printError("Failed to create public key (e)")
         error("Key generation failed")
     end
 
-    local d = modularInverse(e, phiN)
+    local d = modular_inverse(e, phi_N)
     if not d then
         printError("Failed to create private key (d)")
         error("Key generation failed")
@@ -237,7 +237,7 @@ function rsa.generateKeys(bits)
 
     local dP = d % (p - ONE)
     local dQ = d % (q - ONE)
-    local qInv = modularInverse(q, p)
+    local qInv = modular_inverse(q, p)
 
     if not qInv then
         printError("Failed to calculate qInv for CRT")
@@ -247,7 +247,7 @@ function rsa.generateKeys(bits)
     return {e, n}, {d, n, p, q, dP, dQ, qInv}
 end
 
-local function encryptInternal(message, key)
+local function encrypt_internal(message, key)
     if #key < 2 then
         printError("Invalid parameters: message must be a number/string/bignum and key must contain 2 elements.")
         error("Invalid parameters")
@@ -264,7 +264,7 @@ local function encryptInternal(message, key)
     return msg_num:modExp(key[1], n)
 end
 
-function rsa.encrypt(message, publicKey)
+function rsa.encrypt(message, public_key)
     local msg_num
 
     if type(message) == "string" then
@@ -276,27 +276,27 @@ function rsa.encrypt(message, publicKey)
         error("Tipo de mensaje no válido")
     end
 
-    return encryptInternal(msg_num, publicKey)
+    return encrypt_internal(msg_num, public_key)
 end
 
-function rsa.decrypt(message, privateKey)
+function rsa.decrypt(message, private_key)
     local c = bignum(message)
 
-    local d = privateKey[1]
-    local n = privateKey[2]
+    local d = private_key[1]
+    local n = private_key[2]
 
-    if not privateKey[7] then
+    if not private_key[7] then
         printError("WARNING: Private key does not contain CRT values. Using slow decryption.")
         local decrypted_num = c:modExp(d, n)
 
         return decrypted_num:toBytes()
     end
 
-    local p = privateKey[3]
-    local q = privateKey[4]
-    local dP = privateKey[5]
-    local dQ = privateKey[6]
-    local qInv = privateKey[7]
+    local p = private_key[3]
+    local q = private_key[4]
+    local dP = private_key[5]
+    local dQ = private_key[6]
+    local qInv = private_key[7]
 
     local m1 = c:modExp(dP, p)
 

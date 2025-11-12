@@ -2,173 +2,111 @@ local sha = require("idar-cl.sha")
 
 local chacha = {}
 
-local constFields = {"a", "b", "c", "d"}
-local oMatrix = nil
+local function to_u32(x) return x % 2^32 end
 
-local function add(block1, block2)
-    local result = {}
-    for i = 1, #block1 do
-        result[i] = string.char((string.byte(block1, i) + string.byte(block2, i)) % 0xFF)
-    end
-    return table.concat(result)
+local function word_to_bytes_le(w)
+    w = to_u32(w)
+    local b1 = w % 256
+    local b2 = math.floor(w / 256) % 256
+    local b3 = math.floor(w / 65536) % 256
+    local b4 = math.floor(w / 16777216) % 256
+    return string.char(b1, b2, b3, b4)
 end
 
-local function rotate(block, bits)
-    local result = {}
-    for i = 1, #block do
-        result[i] = string.char(bit.blshift(string.byte(block, i), bits) % 0xFF)
-    end
-    return table.concat(result)
+local function bytes_to_word_le(s, i)
+    i = i or 1
+    local b1, b2, b3, b4 = string.byte(s, i, i+3)
+    return to_u32(b1 + b2*256 + b3*65536 + b4*16777216)
 end
 
-local function xor(block1, block2)
-    local result = {}
-    for i = 1, #block1 do
-        result[i] = string.char(bit.bxor(string.byte(block1, i), string.byte(block2, i)))
-    end
-    return table.concat(result)
+local function rotl32(x, n)
+    x = to_u32(x)
+    n = n % 32
+    return to_u32(bit32.lshift(x, n) + bit32.rshift(x, 32 - n))
 end
 
-local function split(input, row, startCol, endCol, stream)
-    stream[row] = stream[row] or {}
-
-    for c = startCol, endCol do
-        stream[row][c] = input:sub(1, 4)
-        input = input:sub(5)
-    end
-
-    return input
+local function quarter_round(state, a, b, c, d)
+    state[a] = to_u32(state[a] + state[b]); state[d] = bit32.bxor(state[d], state[a]); state[d] = rotl32(state[d], 16)
+    state[c] = to_u32(state[c] + state[d]); state[b] = bit32.bxor(state[b], state[c]); state[b] = rotl32(state[b], 12)
+    state[a] = to_u32(state[a] + state[b]); state[d] = bit32.bxor(state[d], state[a]); state[d] = rotl32(state[d], 8)
+    state[c] = to_u32(state[c] + state[d]); state[b] = bit32.bxor(state[b], state[c]); state[b] = rotl32(state[b], 7)
 end
 
-local function fromMatrix(matrix)
-    local block = {}
-    for i = 1, 4 do
-        for j = 1, 4 do
-            block[#block + 1] = matrix[i][j]
-        end
+local function chacha20_block(key32, counter, nonce12)
+    local constants = {
+        bytes_to_word_le("expa"),
+        bytes_to_word_le("nd 3"),
+        bytes_to_word_le("2-by"),
+        bytes_to_word_le("te k"),
+    }
+
+    local state = {}
+    for i = 1,4 do state[i] = constants[i] end
+    for i = 1,8 do
+        local offset = (i-1)*4 + 1
+        state[4 + i] = bytes_to_word_le(key32, offset)
+    end
+    state[13] = to_u32(counter)
+    state[14] = bytes_to_word_le(nonce12, 1)
+    state[15] = bytes_to_word_le(nonce12, 5)
+    state[16] = bytes_to_word_le(nonce12, 9)
+
+    local working = {}
+    for i = 1, 16 do working[i] = state[i] end
+
+    for _ = 1, 10 do
+        quarter_round(working, 1, 5, 9, 13)
+        quarter_round(working, 2, 6, 10, 14)
+        quarter_round(working, 3, 7, 11, 15)
+        quarter_round(working, 4, 8, 12, 16)
+        quarter_round(working, 1, 6, 11, 16)
+        quarter_round(working, 2, 7, 12, 13)
+        quarter_round(working, 3, 8, 9, 14)
+        quarter_round(working, 4, 5, 10, 15)
     end
 
-    return table.concat(block)
-end
-
-local function sortCols(stream)
-    local sortStream = {}
-    for _, chara in ipairs(constFields) do
-        sortStream[chara] = {}
-        for j = 1, 4 do
-            sortStream[chara][j] = stream[chara][j]
-        end
+    local out = {}
+    for i = 1, 16 do
+        local w = to_u32(working[i] + state[i])
+        out[#out + 1] = word_to_bytes_le(w)
     end
 
-    return sortStream
+    return table.concat(out)
 end
 
-local function sortDiagonal(stream)
-    local sortStream = {}
-
-    for i, chara in ipairs(constFields) do
-        sortStream[chara] = {}
-        for j = 1, 4 do
-            sortStream[chara][j] = stream[chara][((j + i - 2) % 4) + 1]
-        end
+local function xor_strings(a, b)
+    local res = {}
+    local n = math.min(#a, #b)
+    for i = 1, n do
+        res[i] = string.char(bit32.bxor(string.byte(a, i), string.byte(b, i)))
     end
-
-    return sortStream
+    return table.concat(res)
 end
 
-local function generateStream(key, position, nonce)
-    local stream = {a = {"expa", "nd 3", "2-by", "te k"}}
-    key = split(key, "b", 1, 4, stream)
-    split(key, "c", 1, 4, stream)
-    split(position, "d", 1, 1, stream)
-    split(nonce, "d", 2, 4, stream)
-
-    return stream
-end
-
-local function sortMatrix(stream, mode)
-    if mode == 1 then
-        stream = sortCols(stream)
-    else
-        stream = sortDiagonal(stream)
-    end
-
-    return stream
-end
-
-local function quarterRound(stream)
-    stream.b = add(stream.a, stream.b)
-    stream.a = xor(stream.a, stream.d)
-    stream.d = rotate(stream.d, 16)
-    stream.d = add(stream.d, stream.c)
-    stream.c = xor(stream.c, stream.b)
-    stream.b = rotate(stream.b, 12)
-    stream.b = add(stream.b, stream.a)
-    stream.a = xor(stream.a, stream.d)
-    stream.d = rotate(stream.d, 8)
-    stream.d = add(stream.d, stream.c)
-    stream.c = xor(stream.c, stream.b)
-    stream.b = rotate(stream.b, 7)
-end
-
-local function generateKeySequence(stream)
-    if not oMatrix then return end
-
-    for currentRound = 1, 20 do
-        stream = sortMatrix(stream, currentRound % 2)
-        local round = {}
-        for quarter = 1, 4 do
-            table.insert(round, function ()
-                local quarterTable = {a = stream["a"][quarter], b = stream["b"][quarter], c = stream["c"][quarter], d = stream["d"][quarter]}
-                quarterRound(quarterTable)
-
-                for key, value in pairs(quarterTable) do
-                    stream[key][quarter] = value
-                end
-            end)
-        end
-
-        parallel.waitForAll(table.unpack(round))
-    end
-
-    local keySequence = {}
-
-    for i = 1, 4 do
-        keySequence[i] = {}
-        for j = 1, 4 do
-            keySequence[i][j] = add(stream[constFields[i]][j], oMatrix[constFields[i]][j])
-        end
-    end
-
-    return fromMatrix(keySequence)
+local function derive_key(secret)
+    local _, bin = sha.sha256(secret)
+    return bin
 end
 
 local function operate(message, secret, nonce)
-    if not nonce or not secret or not message then return end
-    if #nonce < 12 then return end
+    if not message or not secret or not nonce then return nil end
+    if #nonce ~= 12 then error("nonce must be 12 bytes") end
 
-    secret = sha.sha256(secret)
+    local key = derive_key(secret)
+    local out = {}
+    local counter = 0
+    local pos = 1
 
-    local fillLength = (64 - (#message % 64)) % 64
-    message = message .. string.rep(string.char(fillLength), fillLength)
-
-    local blocks = {}
-    for i = 1, #message, 64 do
-        table.insert(blocks, message:sub(i, i + 63))
+    while pos <= #message do
+        local keystream = chacha20_block(key, counter, nonce)
+        local block = message:sub(pos, pos + 63)
+        local x = xor_strings(block, keystream)
+        out[#out + 1] = x
+        pos = pos + #block
+        counter = (counter + 1) % 2^32
     end
 
-    local encryptMessage = ""
-
-    for position, block in ipairs(blocks) do
-        local stream = generateStream(secret, string.rep("\0", 3) .. string.char(position), nonce)
-        oMatrix = stream
-
-        local secuenceKey = generateKeySequence(stream)
-
-        encryptMessage = encryptMessage .. xor(block, secuenceKey)
-    end
-
-    return encryptMessage
+    return table.concat(out)
 end
 
 function chacha.encrypt(message, secret, nonce)
@@ -176,19 +114,13 @@ function chacha.encrypt(message, secret, nonce)
 end
 
 function chacha.decrypt(message, secret, nonce)
-    local rawMessage = operate(message, secret, nonce)
-    if not rawMessage then return end
-
-    local padValue = string.byte(rawMessage:sub(-1))
-    return rawMessage:sub(1, -padValue - 1)
+    return operate(message, secret, nonce)
 end
 
 function chacha.generateNonce()
-    local nonce = {}
-    for i = 1, 12 do
-        nonce[i] = string.char(math.random(0, 255))
-    end
-    return table.concat(nonce)
+    local t = {}
+    for i = 1, 12 do t[i] = string.char(math.random(0,255)) end
+    return table.concat(t)
 end
 
 return chacha

@@ -72,3 +72,32 @@ Work is ongoing to expand the library with elliptic-curve algorithms (targeting 
 
 - **BigNum Core Fix:** Solved a fundamental arithmetic bug in the core [`iDar-BigNum`](https://github.com/DarThunder/iDar-BigNum) library concerning the incorrect propagation of the **borrow** in multi-byte subtraction, which previously led to flawed results in RSA's complex modular operations.
 - Minor fixes applied to AES initialization and internal state handling.
+
+### v0.4.0
+
+#### New Features
+
+- **Elliptic Curve Digital Signature Algorithm (ECDSA):**
+
+  - Added full ECDSA support to the `secp256k1` module.
+  - New functions available:
+    - `ecc.sign(privKey, message)`: Generates a deterministic signature using **RFC 6979** compliant nonce generation (HMAC-SHA256).
+    - `ecc.verify(pubKey, message, signature)`: Validates an ECDSA signature against a public key.
+
+- **HMAC Support:**
+  - Added the `hmac_sha256(key, message)` function to the `SHA-256` module, implementing the **keyed-hashing for message authentication** standard.
+
+#### Improvements & Compliance
+
+- **SHA-256 Module:**
+
+  - Refactored the core `sha256` function to return both the **hexadecimal** and **binary (raw byte)** digest, improving integration flexibility.
+
+- **AES Module:**
+  - **Key Derivation Refinement:** The internal key derivation process was updated to use the full 32-byte binary output of SHA-256, ensuring true **AES-256** strength.
+  - **External IV Generation:** Added the `generate_iv()` functionality to generate a cryptographically weak (due to Lua's `math.random` but, it's **lua in CC:T**, i can't work miracles) 16-byte Initialization Vector (IV) when one is not supplied, though providing an external.
+
+#### Bug Fixes
+
+- **ECC Critical Fix:** Corrected a critical bug in the `scalar_multiply` implementation's windowed method that caused the scalar value to be processed in a **nibble-reversed order**. This fix ensures correct mathematical results for point multiplication, resolving signature verification failures.
+- **Dependency Install Fix:** Corrected the library installer/packaging logic to ensure the newly introduced `secp256k1` module is correctly included and installed alongside other components.

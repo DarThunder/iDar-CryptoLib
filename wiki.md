@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This wiki explains the functions available in iDar-CryptoLib, a cryptographic library designed for handling sensitive information **IN COMPUTERCRAFT ONLY** (at least you wanna get hacked).
+This wiki explains the functions available in iDar-CryptoLib, a cryptographic library designed to handle sensitive information **ONLY IN COMPUTER CRAFT** (unless you want to get hacked lol).
 
 ## Algorithms
 
@@ -10,54 +10,75 @@ This wiki explains the functions available in iDar-CryptoLib, a cryptographic li
 
 ### aes.cbc_encrypt(message, secret, iv)
 
-Encrypts a message using AES-128-CBC (Cipher Block Chaining) mode.
+Encrypts a message using the AES-128-CBC (Cipher Block Chaining) mode.
 
-- **Params:**
-  - `message`: The message to encrypt (type: `string`)
-  - `secret`: The symmetric key (type: `string`). Will be hashed with SHA-256 and truncated to 16 bytes
-  - `iv?`: Optional initialization vector (type: `string`, length: 16 bytes). If not provided or invalid, a random IV will be generated
+- **Parameters:**
+  - `message`: The message to encrypt (`string`)
+  - `secret`: The symmetric key (`string`). This will be hashed with SHA-256, and the **full 32-byte binary hash** will be used as the AES-256 key.
+  - `iv?`: Optional Initialization Vector (`string`, length: 16 bytes).
 - **Returns:**
-  - `encryptedMessage`: The encrypted message with IV prepended (type: `string`)
+  - `encryptedMessage`: The encrypted message with the IV prepended (`string`)
 
 #### Implementation Details:
 
-- Uses PKCS#7 padding automatically
-- Derives a 16-byte key from the secret using SHA-256 (bytes 17-32 of the hash)
-- Generates random IV if not provided
+- Uses automatic PKCS#7 padding.
+- Derives a **32-byte (AES-256)** key from the secret using the full SHA-256 binary hash.
+- If a valid IV is not provided, one is generated using `math.random()`. **Warning:** This IV is cryptographically weak.
 - Output format: `IV (16 bytes) + encrypted data`
 
 #### Example:
 
 ```lua
 local encrypted = aes.cbc_encrypt("Hello world", "superduperultrasecretkey123")
-print(encrypted) -- First 16 bytes are IV, rest is encrypted data
+print(encrypted) -- The first 16 bytes are the IV, the rest is ciphertext
 
 -- With custom IV
 local iv = "1234567890123456" -- Must be exactly 16 bytes
 local encrypted2 = aes.cbc_encrypt("Hello world", "superduperultrasecretkey123", iv)
 ```
 
-### aes.cbc_decrypt(encryptedMessage, secret)
+### aes.cbc_decrypt(message, secret)
 
-Decrypts a message that was encrypted using AES-128-CBC mode.
+Decrypts a message previously encrypted with `aes.cbc_encrypt`.
 
-- **Params:**
-  - `encryptedMessage`: The encrypted message with IV prepended (type: `string`)
-  - `secret`: The symmetric key (type: `string`). Must be the same key used for encryption
+- **Parameters:**
+  - `message`: The encrypted message (must include the 16-byte IV at the start).
+  - `secret`: The symmetric key used for encryption.
 - **Returns:**
-  - `decryptedMessage`: The original message (type: `string`)
-
-#### Implementation Details:
-
-- Expects input format: `IV (16 bytes) + encrypted data`
-- Automatically removes PKCS#7 padding
-- Uses the same key derivation as encryption (SHA-256 bytes 17-32)
+  - `decryptedMessage`: The original message (`string`)
 
 #### Example:
 
 ```lua
+local encrypted = aes.cbc_encrypt("Hello world", "superduperultrasecretkey123")
+print(encrypted)
+
 local decrypted = aes.cbc_decrypt(encrypted, "superduperultrasecretkey123")
-print(decrypted) -- "Hello world"
+print(decrypted) -- Output: Hello world
+```
+
+### aes.generate_iv()
+
+Generate a Initialization Vector for `AES-CBC`
+
+- **Parameters:**
+  - `none`
+- **Returns:**
+  - `iv`: A random 16 bytes value
+
+#### Example:
+
+```lua
+local aes = require("idar-cl.aes")
+
+-- AES-CBC encryption/decryption example
+local key = "676767"
+local data = "Sensitive information"
+local iv = aes.generate_iv() -- 16 random bytes
+local encrypted = aes.cbc_encrypt(data, key, iv)
+local decrypted = aes.cbc_decrypt(encrypted, key)
+
+print(decrypted) -- Output: Sensitive information
 ```
 
 ## ChaCha20
@@ -224,165 +245,139 @@ local decrypted = rsa.decrypt(encrypted, privateKey)
 print(decrypted) -- Original message
 ```
 
-## SHA
+## SHA-256
 
-### sha.sha256(prompt)
-
-Generates a SHA-256 hash from the provided input.
-
-- **Params:**
-  - `prompt`: The text to generate the hash (type: `string`).
-- **Returns:**
-  - `hash`: The resulting SHA-256 hash (type: `string`).
-
-#### Example:
-
-```lua
-local hash = sha.sha256("Hello world")
-print(hash) -- c8e284fe0b97a4bba8f65390ae0feb30d738c6d5bded85325b3bb1d70810a74
-```
-
-## secp256k1
-
-The `secp256k1` module implements Elliptic Curve Cryptography (ECC) based on the secp256k1 curve, which is the standard used for secure key exchange and digital signatures in many modern applications like Bitcoin.
-
-### ecc.generatePrivateKey()
-
-Generates a valid, random private key for the secp256k1 curve.
-
-- **Params:** None
-- **Returns:**
-  - `privateKey`: The private key (type: `bignum`)
-
-#### Implementation Details:
-
-- Generates 32 random bytes using `math.random()`
-- Ensures the key is in the range `[1, N-1]` where N is the curve order
-- **N** = `115792089237316195423570985008687907852837564279074904382605163141518161494337`
-
-#### Example:
-
-```lua
-local ecc = require("idar-cl.secp256k1")
-local privateKey = ecc.generatePrivateKey()
-print(privateKey:toString()) -- a large integer (bignum)
-```
-
-### ecc.getPublicKey(privateKey)
-
-Calculates the corresponding public key point (x, y) on the curve from a given private key.
-
-- **Params:**
-  - `privateKey`: The private key (type: `bignum`)
-- **Returns:**
-  - `publicKey`: A table containing the public key coordinates (type: `table` with `x` and `y` bignums)
-
-#### Implementation Details:
-
-- Performs scalar multiplication: `publicKey = privateKey × G`
-- Where **G** is the generator point of the curve:
-  - `x = 55066263022277343669578718895168534326250603453777594175500187360389116729240`
-  - `y = 32670510020758816978083085130507043184471273380659243275938904335757337482424`
-- Uses "double-and-add" algorithm for efficiency
-
-#### Example:
-
-```lua
-local publicKey = ecc.getPublicKey(privateKey)
-print(publicKey.x:toString()) -- x-coordinate of the public point
-print(publicKey.y:toString()) -- y-coordinate of the public point
-```
-
-### ecc.getSharedSecret(myPrivKey, theirPubKey)
-
-Performs the Elliptic Curve Diffie-Hellman (ECDH) key exchange to calculate a shared symmetric secret.
-
-- **Params:**
-  - `myPrivKey`: Your private key (type: `bignum`)
-  - `theirPubKey`: The other party's public key (type: `table` with `x` and `y` bignums)
-- **Returns:**
-  - `sharedSecret`: The X-coordinate of the shared point (type: `bignum`)
-
-#### Implementation Details:
-
-- Calculates: `sharedPoint = myPrivKey × theirPubKey`
-- Returns the x-coordinate of the resulting point as shared secret
-- Both parties will get the same secret if: `myPrivKey × theirPubKey = theirPrivKey × myPubKey`
-
-#### Example:
-
-```lua
--- Alice generates her key pair
-local privA = ecc.generatePrivateKey()
-local pubA = ecc.getPublicKey(privA)
-
--- Bob generates his key pair
-local privB = ecc.generatePrivateKey()
-local pubB = ecc.getPublicKey(privB)
-
--- Both calculate the same shared secret
-local secretA = ecc.getSharedSecret(privA, pubB)
-local secretB = ecc.getSharedSecret(privB, pubA)
-
-print(secretA:toString() == secretB:toString()) -- true
-```
-
-## SHA
+The SHA-256 module provides secure hashing and Message Authentication Code (HMAC) functionality.
 
 ### sha.sha256(message)
 
-Generates a SHA-256 cryptographic hash from the provided input string.
+Computes the SHA-256 hash of a given message.
 
-- **Params:**
-  - `message`: The input text to hash (type: `string`)
+- **Parameters:**
+  - `message`: The message to hash (`string`)
 - **Returns:**
-  - `hash`: The resulting SHA-256 hash as a hexadecimal string (type: `string`)
-
-#### Implementation Details:
-
-- Implements the full SHA-256 algorithm according to FIPS 180-4 standard (not really, but, works lmao)
-- Uses 64 rounds of compression with pre-defined constants
-- Applies proper padding with length encoding
-- Processes 512-bit (64-byte) chunks
-- Returns a fixed 64-character hexadecimal string (256 bits)
-
-#### Technical Features:
-
-- **Initial Hash Values:** Standard SHA-256 constants (H[0]-H[7])
-- **Round Constants:** 64 pre-defined K values
-- **Bit Operations:** Uses right rotation and logical functions
-- **Message Schedule:** Expands 16 words to 64 words per chunk
-- **Padding:** Appends '80' + zeros + message length in bits
+  - `hexDigest`: The hash in hexadecimal format (64 characters)
+  - `binDigest`: The hash in binary format (32 bytes)
 
 #### Example:
 
 ```lua
-local hash = sha.sha256("Hello world")
-print(hash) -- "64ec88ca00b268e5ba1a35678a1b5316d212f4f366b2477232534a8aeca37f3c"
-
-local hash2 = sha.sha256("")
-print(hash2) -- "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+local hex, bin = sha.sha256("Hello world")
+print("Hex:", hex) -- Output: b94d27b9934d3e08a52e52d7da7debac...
+print("Bin Length:", #bin) -- Output: 32
 ```
 
-#### Algorithm Steps:
+### sha.hmac_sha256(key, message)
 
-1. **Pre-processing:** Pad message to multiple of 512 bits
-2. **Message Schedule:** Expand input to 64 words
-3. **Compression:** 64 rounds of mixing with constants
-4. **Finalization:** Combine intermediate hash values
+Computes the Hash-based Message Authentication Code (HMAC) using SHA-256.
 
-The implementation produces standards-compliant SHA-256 hashes suitable for cryptographic verification and data integrity checks.
+- **Parameters:**
+  - `key`: The secret key for the HMAC (`string`)
+  - `message`: The message to authenticate (`string`)
+- **Returns:**
+  - `hmacDigest`: The HMAC digest in hexadecimal format.
+
+#### Example:
+
+```lua
+local hmac = sha.hmac_sha256("secretkey", "data to authenticate")
+print("HMAC:", hmac)
+```
+
+## secp256k1 (ECC)
+
+Full implementation of the **secp256k1** elliptic curve with Key Exchange (ECDH) and Digital Signature (ECDSA).
+
+### ecc.generatePrivateKey()
+
+Generates a valid random private key for the curve.
+
+- **Returns:**
+  - `privateKey`: A `bignum` representing the private key.
+
+### ecc.getPublicKey(privKey)
+
+Calculates the public key point from the private key.
+
+- **Parameters:**
+  - `privKey`: The private key (`bignum`)
+- **Returns:**
+  - `publicKey`: A table with affine coordinates `{x = bignum, y = bignum}`.
+
+### ecc.getSharedSecret(myPrivKey, theirPubKey)
+
+Performs Elliptic Curve Diffie-Hellman (ECDH) to compute a symmetric shared secret.
+
+- **Parameters:**
+  - `myPrivKey`: Your private key (`bignum`)
+  - `theirPubKey`: The other participant's public key (`{x, y}` table of `bignum`)
+- **Returns:**
+  - `sharedSecret`: A `bignum` (X-coordinate of the resulting point) which is the shared secret.
+
+### ecc.sign(privKey, message)
+
+Generates an ECDSA digital signature for a message. Uses **RFC 6979** deterministic nonce generation (HMAC-SHA256).
+
+- **Parameters:**
+  - `privKey`: The signer's private key (`bignum`)
+  - `message`: The message to be signed (`string`)
+- **Returns:**
+  - `signature`: A table `{r = bignum, s = bignum}`.
+
+### ecc.verify(pubKey, message, signature)
+
+Verifies an ECDSA digital signature against a message and a public key.
+
+- **Parameters:**
+  - `pubKey`: The signer's public key (`{x, y}` table of `bignum`)
+  - `message`: The original message that was signed (`string`)
+  - `signature`: The `{r, s}` signature generated previously.
+- **Returns:**
+  - `verificationResult`: A table with `{result = boolean, message = string}`.
+
+#### Example of ECDSA and ECDH:
+
+```lua
+local ecc = require("idar-cl.secp256k1")
+local message = "The shared secret is vital."
+local sleep_time = 5 -- Use a short sleep time for the example
+
+-- 1. ECDH Demo
+local privA = ecc.generatePrivateKey()
+local pubA = ecc.getPublicKey(privA)
+local privB = ecc.generatePrivateKey()
+local pubB = ecc.getPublicKey(privB)
+
+local secretA = ecc.getSharedSecret(privA, pubB)
+local secretB = ecc.getSharedSecret(privB, pubA)
+
+print("ECDH Secret Match:", secretA:toString() == secretB:toString())
+-- Output: ECDH Secret Match: true
+
+-- 2. ECDSA Demo
+os.sleep(sleep_time) -- Yielding is necessary for CPU-intensive ops
+
+local signature = ecc.sign(privA, message)
+print("Signature R:", signature.r:toString():sub(1, 20) .. "...")
+
+os.sleep(sleep_time) -- Yielding is necessary for CPU-intensive ops
+
+local verification = ecc.verify(pubA, message, signature)
+print("ECDSA Verification Succeeded:", verification.result)
+-- Output: ECDSA Verification Succeeded: true
+```
 
 ## Additional Notes
 
-- Ensure that the key used for AES encryption is of the correct length (16 bytes for AES-128) or not, it is still truncated to 16 bytes. lol
-- SHA-256 generates a fixed-length hash of 32 characters.
+- **AES Key Length:** The `aes.cbc_encrypt` function now uses the full **32 bytes** (256 bits) of the SHA-256 hash as the key, ensuring true **AES-256** strength.
+- **SHA-256 Return:** The `sha.sha256` function now returns both the **hexadecimal** and **binary** digests for greater flexibility.
 - I know RSA totally supports huge keys (1024+), but we're talking ComputerCraft here, fam. I seriously recommend not tryna generate keys bigger than 128 bits. Is that insecure? Duh, but I can't work miracles either, lol.
-- Okay, so like, everyone knows secp256k1 is supposed to be way faster than RSA for key generation, and yeah, it totally is... if this was an actual computer, lmao. So, you gotta chill. I seriously recommend being patient, using RSA keys of 32 bits, or just using SHA256 as a janky HMAC (tbh).
+- **secp256k1 Performance:** Elliptic Curve operations, while generally faster than RSA in standard environments, are still computationally intensive in Lua/CC:T. Please be patient with key generation and signature operations.
+- **IV Generation:** If the IV is not provided to AES, a default IV is generated using `math.random()`. **This is not cryptographically secure.**
 
 ## Security Considerations
 
-- This library is designed for educational purposes and ComputerCraft environments
-- For production security, consider using established cryptographic libraries
-- Never reuse IVs/nonces with the same encryption key
-- The quality of randomness depends on `math.random()` - use better entropy sources for critical applications
+- This library is designed for educational purposes and ComputerCraft environments.
+- For production security in real world, consider using established cryptographic libraries.
+- Never reuse IVs/nonces with the same encryption key.
+- The quality of randomness depends on `math.random()` - use better entropy sources for critical applications.

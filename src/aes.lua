@@ -44,13 +44,9 @@ local RCON = {
     0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36
 }
 
-
 local function derive_key(secret)
-    if not secret then
-        return ""
-    end
-    local hash = sha.sha256(secret)
-    return hash:sub(17, 32)
+    local _, bin = sha.sha256(secret)
+    return bin:sub(17,32)
 end
 
 local function bxor(...)
@@ -94,11 +90,11 @@ end
 
 
 local function gmul(a, b)
-    local returnValue = 0
+    local return_value = 0
     local temp = 0
     while a ~= 0 do
         if bit.band(a, 1) ~= 0 then
-            returnValue = bit.bxor(returnValue, b)
+            return_value = bit.bxor(return_value, b)
         end
         temp = bit.band(b, 0x80)
         b = bit.blshift(b, 1)
@@ -107,7 +103,7 @@ local function gmul(a, b)
         end
         a = bit.brshift(bit.band(a, 0xff), 1)
     end
-    return bit.band(returnValue, 0xff)
+    return bit.band(return_value, 0xff)
 end
 
 local function rot_word(word)
@@ -159,14 +155,14 @@ end
 local function sub_bytes(block, decrypt)
     local box = decrypt and INV_S_BOX or S_BOX
 
-    local newBlock = {}
+    local new_block = {}
     for i = 1, 4 do
-        newBlock[i] = {}
+        new_block[i] = {}
         for j = 1, 4 do
-            newBlock[i][j] = box[block[i][j] + 1]
+            new_block[i][j] = box[block[i][j] + 1]
         end
     end
-    return newBlock
+    return new_block
 end
 
 local function shift_rows(block)
@@ -211,17 +207,17 @@ local function mix_columns(state, decrypt)
     end
 end
 
-local function addRoundKey(block, roundKey)
+local function add_round_key(block, round_key)
     for i = 1, 4 do
         for j = 1, 4 do
-            block[i][j] = bit.bxor(block[i][j], roundKey[i][j])
+            block[i][j] = bit.bxor(block[i][j], round_key[i][j])
         end
     end
 end
 
 local function encryptBlock(block, round_keys)
     block = to_matrix(block)
-    addRoundKey(block, round_keys[1])
+    add_round_key(block, round_keys[1])
 
     for round = 2, 11 do
         block = sub_bytes(block)
@@ -231,7 +227,7 @@ local function encryptBlock(block, round_keys)
             mix_columns(block)
         end
 
-        addRoundKey(block, round_keys[round])
+        add_round_key(block, round_keys[round])
     end
     return from_matrix(block)
 end
@@ -239,13 +235,13 @@ end
 
 local function decryptBlock(block, round_keys)
     block = to_matrix(block)
-    addRoundKey(block, round_keys[11])
+    add_round_key(block, round_keys[11])
 
     for round = 10, 1, -1 do
         inv_shift_rows(block)
         block = sub_bytes(block, true)
 
-        addRoundKey(block, round_keys[round])
+        add_round_key(block, round_keys[round])
 
         if round > 1 then
             mix_columns(block, true)
@@ -267,25 +263,25 @@ function aes.cbc_encrypt(message, secret, iv)
     end
 
     local remainder = #message % 16
-    local fillLength = (remainder == 0) and 16 or (16 - remainder)
-    message = message .. string.rep(string.char(fillLength), fillLength)
+    local fill_length = (remainder == 0) and 16 or (16 - remainder)
+    message = message .. string.rep(string.char(fill_length), fill_length)
 
     local blocks = {}
     for i = 1, #message, 16 do
         table.insert(blocks, message:sub(i, i + 15))
     end
 
-    local previousBlock = iv
-    local encryptMessage = ""
+    local prev = iv
+    local encrypted_message = ""
 
     for _, block in ipairs(blocks) do
-        local xorBlock = xor(block, previousBlock)
-        local encryptedBlock = encryptBlock(xorBlock, key)
-        encryptMessage = encryptMessage .. encryptedBlock
-        previousBlock = encryptedBlock
+        local xorBlock = xor(block, prev)
+        local encrypted_block = encryptBlock(xorBlock, key)
+        encrypted_message = encrypted_message .. encrypted_block
+        prev = encrypted_block
     end
 
-    return iv .. encryptMessage
+    return iv .. encrypted_message
 end
 
 function aes.cbc_decrypt(message, secret)
@@ -300,22 +296,28 @@ function aes.cbc_decrypt(message, secret)
         table.insert(blocks, message:sub(i, i + 15))
     end
 
-    local previousBlock = iv
-    local decryptedMessage = ""
+    local prev = iv
+    local decrypted_message = ""
 
     for _, block in ipairs(blocks) do
-        local decryptedBlock = decryptBlock(block, key)
-        local xorBlock = xor(decryptedBlock, previousBlock)
-        decryptedMessage = decryptedMessage .. xorBlock
-        previousBlock = block
+        local decrypted_block = decryptBlock(block, key)
+        local xorBlock = xor(decrypted_block, prev)
+        decrypted_message = decrypted_message .. xorBlock
+        prev = block
     end
 
-    local fillLength = string.byte(decryptedMessage:sub(-1))
-    if fillLength >= 1 and fillLength <= 16 then
-        decryptedMessage = decryptedMessage:sub(1, -fillLength - 1)
+    local fill_length = string.byte(decrypted_message:sub(-1))
+    if fill_length >= 1 and fill_length <= 16 then
+        decrypted_message = decrypted_message:sub(1, -fill_length - 1)
     end
 
-    return decryptedMessage
+    return decrypted_message
+end
+
+function aes.generate_iv()
+    local t = {}
+    for i = 1, 16 do t[i] = string.char(math.random(0,255)) end
+    return table.concat(t)
 end
 
 return aes

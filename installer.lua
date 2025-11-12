@@ -5,9 +5,10 @@ local BASE_URL = "https://raw.githubusercontent.com/DarThunder/iDar-CryptoLib/re
 
 local MODULES = {
     "aes",
+    "chacha20",
     "rsa",
-    "sha",
-    "chacha20"
+    "secp256k1",
+    "sha"
 }
 
 if not fs.exists(BN_DIR) then
