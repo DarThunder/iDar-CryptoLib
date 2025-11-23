@@ -101,3 +101,9 @@ Work is ongoing to expand the library with elliptic-curve algorithms (targeting 
 
 - **ECC Critical Fix:** Corrected a critical bug in the `scalar_multiply` implementation's windowed method that caused the scalar value to be processed in a **nibble-reversed order**. This fix ensures correct mathematical results for point multiplication, resolving signature verification failures.
 - **Dependency Install Fix:** Corrected the library installer/packaging logic to ensure the newly introduced `secp256k1` module is correctly included and installed alongside other components.
+
+### v0.4.1
+
+#### Added
+
+- **Package Manager Support:** Added `manifest.lua` to enable direct installation and dependency resolution via **iDar-Pacman**.
