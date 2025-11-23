@@ -107,3 +107,10 @@ Work is ongoing to expand the library with elliptic-curve algorithms (targeting 
 #### Added
 
 - **Package Manager Support:** Added `manifest.lua` to enable direct installation and dependency resolution via **iDar-Pacman**.
+
+### v0.4.2
+
+#### Fixes
+
+- **Manifest dependency:** Fixed incorrect dependency version for `iDar-BigNum`
+- **Manifest files path:** Corrected the file paths for algorithm modules in the manifest.
