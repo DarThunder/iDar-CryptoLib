@@ -1,4 +1,4 @@
-local sha = require("idar-cl.sha")
+local sha = require("..iDar.CryptoLib.src.sha")
 
 local chacha = {}
 

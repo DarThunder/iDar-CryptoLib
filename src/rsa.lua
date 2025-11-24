@@ -1,4 +1,4 @@
-local bignum = require("idar-bn.bigNum")
+local bignum = require("..iDar.Bignum.src.bigNum")
 
 local rsa = {}
 

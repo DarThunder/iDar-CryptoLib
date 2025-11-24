@@ -114,3 +114,20 @@ Work is ongoing to expand the library with elliptic-curve algorithms (targeting 
 
 - **Manifest dependency:** Fixed incorrect dependency version for `iDar-BigNum`
 - **Manifest files path:** Corrected the file paths for algorithm modules in the manifest.
+
+### v0.4.3
+
+#### Added
+
+- New require paths compatible with iDar-Pacman package structure
+- Support for absolute module paths: `require("iDar.CryptoLib.src.module")`
+
+#### Changed
+
+- Updated installation instructions to use iDar-Pacman as primary method
+- Restructured internal file organization for better package management
+
+#### Removed
+
+- Automated installer script (`installer.lua`)
+- Legacy installation method using `wget run`

@@ -10,7 +10,7 @@ return {
     dependencies = {
         {
             name = "idar-bignum",
-            version = "v2.0.1"
+            version = "latest"
         }
     }
 }

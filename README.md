@@ -36,24 +36,24 @@ iDar-CryptoLib is a comprehensive cryptography library that implements powerful 
 
 ## Installation
 
-### Automated Installation:
+### Recommended Installation (via [`iDar-Pacman`](https://github.com/DarThunder/iDar-Pacman)):
 
 ```lua
-wget run https://raw.githubusercontent.com/DarThunder/iDar-CryptoLib/refs/heads/main/installer.lua
+pacman -S idar-cryptolib
 ```
 
 ### Manual Installation:
 
 1. Download the library files from the repository
-2. Place them in your ComputerCraft computer's directory
-3. Use `require("idar-cl.module")` to load specific modules
+2. Place them in your ComputerCraft computer's directory (e.g directory/)
+3. Use `require("directory.module")` to load specific modules
 
 ## Usage
 
 ### AES
 
 ```lua
-local aes = require("idar-cl.aes")
+local aes = require("iDar.CryptoLib.src.aes")
 
 -- AES-CBC encryption/decryption example
 local key = "676767" -- don't matter the size of the key, it will be derived anyway lol
@@ -68,7 +68,7 @@ print(decrypted) -- Output: Sensitive information
 ### ChaCha20
 
 ```lua
-local chacha = require("idar-cl.chacha20")
+local chacha = require("iDar.CryptoLib.src.chacha20")
 
 -- Generate nonce and encrypt
 local nonce = chacha.generateNonce()
@@ -82,7 +82,7 @@ print(decrypted) -- Output: Hello world
 ### RSA
 
 ```lua
-local rsa = require("idar-cl.rsa")
+local rsa = require("iDar.CryptoLib.src.rsa")
 
 -- Generate RSA keys (recommended: 32-128 bits for performance)
 local publicKey, privateKey = rsa.generateKeys(64)
@@ -97,7 +97,7 @@ print(decrypted) -- Output: Secret message
 ### SHA-256
 
 ```lua
-local sha = require("idar-cl.sha")
+local sha = require("iDar.CryptoLib.src.sha")
 
 -- Hash a string
 local message = "Hello, world!"
@@ -118,7 +118,7 @@ print("HMAC BIN:", hmac_digest_bin) -- Output: (binary data)
 ### secp256k1
 
 ```lua
-local ecc = require("idar-cl.secp256k1")
+local ecc = require("iDar.CryptoLib.src.secp256k1")
 
 -- Key exchange example
 local privA = ecc.generatePrivateKey()
