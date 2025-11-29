@@ -131,3 +131,9 @@ Work is ongoing to expand the library with elliptic-curve algorithms (targeting 
 
 - Automated installer script (`installer.lua`)
 - Legacy installation method using `wget run`
+
+### v0.4.4
+
+#### Changed
+
+- Manifest updated for compatibility with iDar-Pacman Alpha v2
