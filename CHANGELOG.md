@@ -78,7 +78,6 @@ Work is ongoing to expand the library with elliptic-curve algorithms (targeting 
 #### New Features
 
 - **Elliptic Curve Digital Signature Algorithm (ECDSA):**
-
   - Added full ECDSA support to the `secp256k1` module.
   - New functions available:
     - `ecc.sign(privKey, message)`: Generates a deterministic signature using **RFC 6979** compliant nonce generation (HMAC-SHA256).
@@ -90,7 +89,6 @@ Work is ongoing to expand the library with elliptic-curve algorithms (targeting 
 #### Improvements & Compliance
 
 - **SHA-256 Module:**
-
   - Refactored the core `sha256` function to return both the **hexadecimal** and **binary (raw byte)** digest, improving integration flexibility.
 
 - **AES Module:**
@@ -137,3 +135,9 @@ Work is ongoing to expand the library with elliptic-curve algorithms (targeting 
 #### Changed
 
 - Manifest updated for compatibility with iDar-Pacman Alpha v2
+
+### v0.4.5
+
+#### Changed
+
+- Manifest updated for compatibility with SATD V2.6

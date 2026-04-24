@@ -1,5 +1,5 @@
-local sha = require("..iDar.CryptoLib.src.sha")
-local bignum = require("..iDar.Bignum.src.bigNum")
+local sha = require("Crypto.sha")
+local bignum = require("Bignum.bigNum")
 
 local ecc = {}
 

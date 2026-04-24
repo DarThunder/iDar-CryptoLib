@@ -53,7 +53,7 @@ pacman -S idar-cryptolib
 ### AES
 
 ```lua
-local aes = require("iDar.CryptoLib.src.aes")
+local aes = require("Crypto.aes")
 
 -- AES-CBC encryption/decryption example
 local key = "676767" -- don't matter the size of the key, it will be derived anyway lol
@@ -68,7 +68,7 @@ print(decrypted) -- Output: Sensitive information
 ### ChaCha20
 
 ```lua
-local chacha = require("iDar.CryptoLib.src.chacha20")
+local chacha = require("Crypto.chacha20")
 
 -- Generate nonce and encrypt
 local nonce = chacha.generateNonce()
@@ -82,7 +82,7 @@ print(decrypted) -- Output: Hello world
 ### RSA
 
 ```lua
-local rsa = require("iDar.CryptoLib.src.rsa")
+local rsa = require("Crypto.rsa")
 
 -- Generate RSA keys (recommended: 32-128 bits for performance)
 local publicKey, privateKey = rsa.generateKeys(64)
@@ -97,7 +97,7 @@ print(decrypted) -- Output: Secret message
 ### SHA-256
 
 ```lua
-local sha = require("iDar.CryptoLib.src.sha")
+local sha = require("Crypto.sha")
 
 -- Hash a string
 local message = "Hello, world!"
@@ -118,7 +118,7 @@ print("HMAC BIN:", hmac_digest_bin) -- Output: (binary data)
 ### secp256k1
 
 ```lua
-local ecc = require("iDar.CryptoLib.src.secp256k1")
+local ecc = require("Crypto.secp256k1")
 
 -- Key exchange example
 local privA = ecc.generatePrivateKey()

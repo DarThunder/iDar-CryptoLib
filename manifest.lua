@@ -1,13 +1,11 @@
 return {
-    directory = "CryptoLib",
+    directory = "Crypto",
     files = {
-        ["src"] = {
-            "aes.lua",
-            "chacha20.lua",
-            "rsa.lua",
-            "secp256k1.lua",
-            "sha.lua"
-        }
+        ["aes.lua"] = "src/aes.lua",
+        ["chacha20.lua"] = "src/chacha20.lua",
+        ["rsa.lua"] = "src/rsa.lua",
+        ["secp256k1.lua"] = "src/secp256k1.lua",
+        ["sha.lua"] = "src/sha.lua"
     },
     dependencies = {
         {

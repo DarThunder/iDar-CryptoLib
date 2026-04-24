@@ -69,7 +69,7 @@ Generate a Initialization Vector for `AES-CBC`
 #### Example:
 
 ```lua
-local aes = require("idar-cl.aes")
+local aes = require("Crypto.aes")
 
 -- AES-CBC encryption/decryption example
 local key = "676767"
@@ -338,7 +338,7 @@ Verifies an ECDSA digital signature against a message and a public key.
 #### Example of ECDSA and ECDH:
 
 ```lua
-local ecc = require("idar-cl.secp256k1")
+local ecc = require("Crypto.secp256k1")
 local message = "The shared secret is vital."
 local sleep_time = 5 -- Use a short sleep time for the example
 
