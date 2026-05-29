@@ -141,3 +141,38 @@ Work is ongoing to expand the library with elliptic-curve algorithms (targeting 
 #### Changed
 
 - Manifest updated for compatibility with SATD V2.6
+
+### v1.0.0
+
+#### Critical Changes & Deprecations
+
+- **Arch Re-structure & Deprecations:** Completely removed legacy cryptography modules (**AES** and **RSA**) along with the `iDar-BigNum` dependency for core operations. The library has been pivoted towards modern, high-performance stream ciphers and elliptic curve cryptography.
+- **Module Namespaces:** Consolidated internal architecture into four clean modules under the `Crypto` package: `sha`, `encoding`, `secp256k1`, and `chacha20`.
+
+#### New Features
+
+- **ChaCha20-Poly1305 (AEAD) (`chacha20.lua`):**
+  - Implemented the **ChaCha20** stream cipher combined with the **Poly1305** MAC for Authenticated Encryption with Associated Data (AEAD).
+  - **Available Functions:**
+    - `chacha.aead_encrypt(message, secret, nonce, aad)`: Encrypts a message and generates an authentication tag (Poly1305).
+    - `chacha.aead_decrypt(ciphertext, secret, nonce, tag, aad)`: Decrypts and verifies message integrity, returning an explicit error if the data or key has been tampered with.
+    - `chacha.generateNonce()`: Safely generates a cryptographically secure 12-byte nonce directly from `/dev/random`.
+
+- **Advanced Key Derivation & Encoding (`encoding.lua`):**
+  - **PBKDF2:** Added `encoding.pbkdf2(password, salt, dklen)` using HMAC-SHA256 with 10,000 iterations for secure password-based key derivation.
+  - **HKDF:** Added `encoding.hkdf(ikm, salt, info, len)` for HMAC-based Extract-and-Expand key derivation.
+  - **Hexadecimal Utilities:** Optimized `encoding.toHex(data)` and `encoding.fromHex(hex)` via native string patterns.
+  - **Base64 Utilities:** Implemented robust `encoding.toBase64(data)` and `encoding.fromBase64(b64)` encoders/decoders with whitespace stripping and padding handling.
+
+- **Elliptic Curve Cryptography (`secp256k1.lua`):**
+  - Fully refactored the `secp256k1` module to operate with an independent big-integer baseline implementation.
+  - Improved randomness in key generation by querying `/dev/random` natively.
+
+#### Improvements & Optimizations
+
+- **SHA-256 Module (`sha.lua`):**
+  - Extracted and optimized the HMAC-SHA256 implementation (`sha.hmac_sha256`) to act as the structural backbone for HKDF, PBKDF2, and ECDSA nonce generation.
+
+#### Known Issues / TODOs
+
+- **ChaCha20 Internal Salt:** The internal implementation currently utilizes the `nonce` directly as a salt for PBKDF2 during encryption operations. A proper dedicated `salt` parameter is planned for a future patch to separate entropy concerns.

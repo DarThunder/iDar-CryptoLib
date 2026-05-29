@@ -8,9 +8,7 @@ iDar-CryptoLib is a comprehensive cryptography library that implements powerful 
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage](#usage)
-  - [AES](#aes)
   - [ChaCha20](#chacha20)
-  - [RSA](#rsa)
   - [SHA-256](#sha-256)
   - [secp256k1](#secp256k1)
 - [Security Notes](#security-notes)
@@ -20,12 +18,11 @@ iDar-CryptoLib is a comprehensive cryptography library that implements powerful 
 
 ## Features
 
-- **AES-128-CBC**: Secure block cipher encryption with automatic padding
-- **ChaCha20**: Modern stream cipher with parallel processing
-- **RSA**: Asymmetric encryption with CRT optimization
-- **SHA-256**: Cryptographic hashing algorithm
-- **secp256k1**: Elliptic curve cryptography (ECDH key exchange & ECDSA)
+- **ChaCha20-Poly1305**: Authenticated encryption (AEAD) with integrity verification
+- **SHA-256**: Cryptographic hashing algorithm with HMAC support
+- **secp256k1**: Elliptic curve cryptography (ECDH key exchange & ECDSA signing)
 - Lightweight and optimized for ComputerCraft: Tweaked
+- **RSA**: Asymmetric encryption with CRT optimization
 - Modular and extensible design
 
 ## Requirements
@@ -50,49 +47,34 @@ pacman -S idar-cryptolib
 
 ## Usage
 
-### AES
-
-```lua
-local aes = require("Crypto.aes")
-
--- AES-CBC encryption/decryption example
-local key = "676767" -- don't matter the size of the key, it will be derived anyway lol
-local data = "Sensitive information"
-local iv = aes.generate_iv() -- 16 random bytes
-local encrypted = aes.cbc_encrypt(data, key, iv)
-local decrypted = aes.cbc_decrypt(encrypted, key)
-
-print(decrypted) -- Output: Sensitive information
-```
-
 ### ChaCha20
+
+ChaCha20 uses **authenticated encryption (AEAD)** — encryption and integrity verification happen together. `aead_encrypt` returns both the ciphertext and a tag, and `aead_decrypt` requires the tag to verify the message wasn't tampered with.
 
 ```lua
 local chacha = require("Crypto.chacha20")
 
--- Generate nonce and encrypt
-local nonce = chacha.generateNonce()
 local key = "supersecretkey"
-local encrypted = chacha.encrypt("Hello world", key, nonce)
-local decrypted = chacha.decrypt(encrypted, key, nonce)
+local nonce = chacha.generateNonce() -- 12 random bytes from /dev/random
 
-print(decrypted) -- Output: Hello world
+-- Encrypt: returns ciphertext and authentication tag
+local ciphertext, tag = chacha.aead_encrypt("Hello world", key, nonce)
+
+-- Decrypt: tag is required to verify integrity
+local decrypted, err = chacha.aead_decrypt(ciphertext, key, nonce, tag)
+
+if decrypted then
+    print(decrypted) -- Output: Hello world
+else
+    print("Decryption failed: " .. err) -- Integrity check failed
+end
+
+-- Optional: additional authenticated data (AAD)
+local ciphertext2, tag2 = chacha.aead_encrypt("Hello world", key, nonce, "extra context")
+local decrypted2 = chacha.aead_decrypt(ciphertext2, key, nonce, tag2, "extra context")
 ```
 
-### RSA
-
-```lua
-local rsa = require("Crypto.rsa")
-
--- Generate RSA keys (recommended: 32-128 bits for performance)
-local publicKey, privateKey = rsa.generateKeys(64)
-
--- Encrypt and decrypt
-local encrypted = rsa.encrypt("Secret message", publicKey)
-local decrypted = rsa.decrypt(encrypted, privateKey)
-
-print(decrypted) -- Output: Secret message
-```
+> **Never reuse the same nonce with the same key.** Always generate a fresh nonce for each message.
 
 ### SHA-256
 
@@ -105,14 +87,14 @@ local hash_hex, hash_bin = sha.sha256(message)
 print(hash_hex) -- Output: 315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3
 print(hash_bin) -- Output: (binary data)
 
+-- HMAC-SHA256
 local secret = "mango"
-local hmac_digest = sha.hmac_sha256(secret, message)
+local hmac_hex = sha.hmac_sha256(secret, message)
+print("HMAC:", hmac_hex) -- Output: 1534f334fbe2c72667f632c7f77e1b8b627375dc9502b49f040d80794b2a67ab
 
-print("Message:", message) -- Output: Hello, world!
-print("HMAC:", hmac_digest) -- Output: 1534f334fbe2c72667f632c7f77e1b8b627375dc9502b49f040d80794b2a67ab
-
-local hmac_digest_bin = sha.hmac_sha256(secret, message, true)
-print("HMAC BIN:", hmac_digest_bin) -- Output: (binary data)
+-- Binary output (for use in other crypto functions)
+local hmac_bin = sha.hmac_sha256(secret, message, true)
+print("HMAC BIN:", hmac_bin) -- Output: (binary data)
 ```
 
 ### secp256k1
@@ -120,30 +102,33 @@ print("HMAC BIN:", hmac_digest_bin) -- Output: (binary data)
 ```lua
 local ecc = require("Crypto.secp256k1")
 
--- Key exchange example
+-- Key generation
 local privA = ecc.generatePrivateKey()
 local pubA = ecc.getPublicKey(privA)
 
 local privB = ecc.generatePrivateKey()
 local pubB = ecc.getPublicKey(privB)
 
--- Both parties compute the same shared secret
+-- ECDH: both parties compute the same shared secret
 local secretA = ecc.getSharedSecret(privA, pubB)
 local secretB = ecc.getSharedSecret(privB, pubA)
 
 print(secretA == secretB) -- Output: true
-local message = "tung tung tung sahur ta ta ta sahur"
-os.sleep(10) -- a very neccessary sleep if you don't want to burn your cpu lol
 
--- sign example
-local sign = ecc.sign(privA, message)
-print("R = " .. sign.r) -- R
-print("S = " .. sign.s) -- S
-os.sleep(10) -- another small pause to keep the CPU cool :)
+-- ECDSA signing (this is slow — secp256k1 is heavy in pure Lua)
+local message = "tung tung tung sahur"
+os.sleep(10) -- give your CPU a moment before signing
 
--- verify example
-local verify = ecc.verify(pubA, message, sign)
-print("Result: ", verify.result, "\nMessage: ", verify.message) --Output true, Signature verification result
+local signature = ecc.sign(privA, message)
+print("R = " .. signature.r)
+print("S = " .. signature.s)
+
+os.sleep(10) -- and another one before verifying
+
+-- Verify signature
+local result = ecc.verify(pubA, message, signature)
+print("Valid:", result.result)   -- Output: true
+print("Message:", result.message) -- Output: Signature verification result
 ```
 
 ## Security Notes
@@ -151,24 +136,21 @@ print("Result: ", verify.result, "\nMessage: ", verify.message) --Output true, S
 **Important Security Considerations:**
 
 - This library is designed for **educational purposes** and **ComputerCraft environments**
-- For real-world security, use established cryptographic libraries
-- **RSA key sizes are limited** due to ComputerCraft performance constraints
-- **Never reuse IVs/nonces** with the same encryption key
-- The randomness quality depends on `math.random()` - not suitable for high-security applications
+- For real-world security, use established cryptographic libraries.
+- **Never reuse nonces** with the same encryption key, especially with ChaCha20.
+- Randomness is sourced from `/dev/random` via the `sys` API — quality depends on your activity.
+- ChaCha20 key derivation currently uses PBKDF2 with the nonce as salt — functional for a beta, but a dedicated salt parameter is planned.
 
 ## FAQ
 
 **Q: What happens if I lose my private key?**  
-A: Unfortunately, if you lose your private key, you won't be able to decrypt any data encrypted with the corresponding public key. Always back up your keys securely.
+A: If you lose your private key, you won't be able to decrypt any data encrypted with the corresponding public key. Always back up your keys securely.
 
 **Q: Can I use this with other mods?**  
 A: Yes, as long as the other mods are compatible with ComputerCraft and Lua, iDar-CryptoLib should work seamlessly.
 
-**Q: Why are RSA key sizes limited?**  
-A: ComputerCraft has performance limitations. Generating large RSA keys (1024+ bits) would be extremely slow. We recommend 32-128 bits for practical use.
-
 **Q: Is this library cryptographically secure?**  
-A: While the algorithms are correctly implemented, the execution environment (ComputerCraft) and randomness sources may not provide enterprise-level security. (It's a library on pure Lua for a Minecraft mod for God's sake)
+A: The algorithms are correctly implemented, but this is a pure Lua library running inside a Minecraft mod — don't use it to protect anything that actually matters in the real world.
 
 ## Contributing
 
@@ -182,15 +164,3 @@ Contributions are welcome! Please follow these steps:
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-```
-Key changes made:
-- Added all modules (AES, ChaCha20, RSA, SHA-256, secp256k1)
-- Updated usage examples with correct function names and parameters
-- Added security notes section with important warnings
-- Expanded FAQ with practical questions
-- Improved installation instructions
-- Added proper module require paths
-- Included performance considerations for RSA
-- Made the tone consistent and professional while maintaining accessibility
-```

@@ -14,16 +14,6 @@ local P = bignum("11579208923731619542357098500868790785326998466564056403945758
 local G = {x = bignum("55066263022277343669578718895168534326250603453777594175500187360389116729240"), y = bignum("32670510020758816978083085130507043184471273380659243275938904335757337482424")}
 local N = bignum("115792089237316195423570985008687907852837564279074904382605163141518161494337")
 
-local function random_big_int(nbytes)
-    local seed = os.epoch("utc") + os.getComputerID()
-    math.randomseed(seed)
-    local bytes = {}
-    for i = 1, nbytes do
-        bytes[i] = string.char(math.random(0, 255))
-    end
-    return ZERO.fromBytes(table.concat(bytes))
-end
-
 local function hash_message(message)
     local _, bin_digest = sha.sha256(message)
     local z = ZERO.fromBytes(bin_digest)
@@ -32,7 +22,10 @@ end
 
 local function generate_k(priv, z)
     local key = priv:toBytes()
+    key = string.rep("\x00", 32 - #key) .. key
+
     local h1 = z:toBytes()
+    h1 = string.rep("\x00", 32 - #h1) .. h1
 
     local K = string.rep("\x00", 32)
     local V = string.rep("\x01", 32)
@@ -73,7 +66,6 @@ local function to_affine(p)
     local zinv2 = (zinv * zinv) % P
     local zinv3 = (zinv2 * zinv) % P
 
-    os.sleep(0)
     return {
         x = (p.x * zinv2) % P,
         y = (p.y * zinv3) % P
@@ -167,7 +159,18 @@ local function scalar_multiply(k, p)
 end
 
 function ecc.generatePrivateKey()
-    local k = random_big_int(32)
+    local fd, err = sys.open("/dev/random", "r")
+
+    if not fd then
+        error("Can't open /dev/random - " .. tostring(err))
+    end
+
+    local random_bytes = sys.read(fd)
+
+    sys.close(fd)
+
+    local k = ZERO.fromBytes(random_bytes)
+
     return k % (N - ONE) + ONE
 end
 
@@ -189,12 +192,17 @@ function ecc.sign(priv_key, message)
 
     local k = generate_k(priv_key, z)
     local R_proj = scalar_multiply(k, G)
-    R_affine = to_affine(R_proj)
+    local R_affine = to_affine(R_proj)
     local r = R_affine.x % N
     local k_inv = modular_inverse(k, N)
     local term1 = (r * priv_key) % N
     local term2 = (z + term1) % N
     local s = (k_inv * term2) % N
+
+    local HALF_N = N / TWO
+    if s > HALF_N then
+        s = N - s
+    end
 
     return {r = r, s = s}
 end
@@ -214,10 +222,8 @@ function ecc.verify(pub_key, message, sign)
     local u1 = (z * w) % N
     local u2 = (sign.r * w) % N
     local P1 = scalar_multiply(u1, G)
-    os.sleep(0)
     local P_pub_proj = {x = pub_key.x, y = pub_key.y, z = ONE}
     local P2 = scalar_multiply(u2, P_pub_proj)
-    os.sleep(0)
     local R_prime_proj = point_add(P1, P2)
 
     if not R_prime_proj then
@@ -227,7 +233,6 @@ function ecc.verify(pub_key, message, sign)
     local R_prime_affine = to_affine(R_prime_proj)
 
     local r_prime = R_prime_affine.x % N
-    print("R de verifiacion: ", r_prime)
 
     return {result = sign.r == r_prime, message = "Signature verification result"}
 end

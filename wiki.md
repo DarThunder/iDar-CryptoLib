@@ -6,244 +6,239 @@ This wiki explains the functions available in iDar-CryptoLib, a cryptographic li
 
 ## Algorithms
 
-## AES
+## Encoding
 
-### aes.cbc_encrypt(message, secret, iv)
+Utility module for encoding, decoding, and key derivation. Used internally by other modules, but fully available for your own use.
 
-Encrypts a message using the AES-128-CBC (Cipher Block Chaining) mode.
+### encoding.toHex(data)
+
+Converts binary data to a hexadecimal string.
 
 - **Parameters:**
-  - `message`: The message to encrypt (`string`)
-  - `secret`: The symmetric key (`string`). This will be hashed with SHA-256, and the **full 32-byte binary hash** will be used as the AES-256 key.
-  - `iv?`: Optional Initialization Vector (`string`, length: 16 bytes).
+  - `data`: Binary string to convert (`string`)
 - **Returns:**
-  - `encryptedMessage`: The encrypted message with the IV prepended (`string`)
+  - `hex`: Lowercase hexadecimal representation (`string`)
+
+#### Example:
+
+```lua
+local encoding = require("Crypto.encoding")
+
+local hex = encoding.toHex("Hi")
+print(hex) -- Output: 4869
+```
+
+---
+
+### encoding.fromHex(hex)
+
+Converts a hexadecimal string back to binary data.
+
+- **Parameters:**
+  - `hex`: Hexadecimal string — must have even length (`string`)
+- **Returns:**
+  - `data`: Binary string (`string`)
+  - `err`: Error message if the hex length is invalid (`string`, or `nil`)
+
+#### Example:
+
+```lua
+local data = encoding.fromHex("4869")
+print(data) -- Output: Hi
+```
+
+---
+
+### encoding.toBase64(data)
+
+Encodes binary data to a Base64 string.
+
+- **Parameters:**
+  - `data`: Binary string to encode (`string`)
+- **Returns:**
+  - `b64`: Base64 encoded string (`string`)
+
+#### Example:
+
+```lua
+local b64 = encoding.toBase64("Hello world")
+print(b64) -- Output: SGVsbG8gd29ybGQ=
+```
+
+---
+
+### encoding.fromBase64(b64)
+
+Decodes a Base64 string back to binary data.
+
+- **Parameters:**
+  - `b64`: Base64 encoded string — whitespace is stripped automatically (`string`)
+- **Returns:**
+  - `data`: Decoded binary string (`string`)
+  - `err`: Error message if the input is invalid (`string`, or `nil`)
+
+#### Example:
+
+```lua
+local data = encoding.fromBase64("SGVsbG8gd29ybGQ=")
+print(data) -- Output: Hello world
+```
+
+---
+
+### encoding.pbkdf2(password, salt, dklen)
+
+Derives a cryptographic key from a password using PBKDF2-HMAC-SHA256.
+
+- **Parameters:**
+  - `password`: The password to derive from (`string`)
+  - `salt`: A unique salt value (`string`)
+  - `dklen?`: Desired key length in bytes (`number`, default: `32`)
+- **Returns:**
+  - `derivedKey`: The derived key as a binary string (`string`)
 
 #### Implementation Details:
 
-- Uses automatic PKCS#7 padding.
-- Derives a **32-byte (AES-256)** key from the secret using the full SHA-256 binary hash.
-- If a valid IV is not provided, one is generated using `math.random()`. **Warning:** This IV is cryptographically weak.
-- Output format: `IV (16 bytes) + encrypted data`
+- Uses HMAC-SHA256 as the pseudorandom function
+- Runs **10,000 iterations** — intentionally slow to resist brute-force attacks
+- Default output is 32 bytes (256 bits)
 
 #### Example:
 
 ```lua
-local encrypted = aes.cbc_encrypt("Hello world", "superduperultrasecretkey123")
-print(encrypted) -- The first 16 bytes are the IV, the rest is ciphertext
-
--- With custom IV
-local iv = "1234567890123456" -- Must be exactly 16 bytes
-local encrypted2 = aes.cbc_encrypt("Hello world", "superduperultrasecretkey123", iv)
+local key = encoding.pbkdf2("my password", "random salt", 32)
+print(#key) -- Output: 32
 ```
 
-### aes.cbc_decrypt(message, secret)
+---
 
-Decrypts a message previously encrypted with `aes.cbc_encrypt`.
+### encoding.hkdf(ikm, salt, info, len)
+
+Derives a key using HKDF (HMAC-based Key Derivation Function) with SHA-256.
 
 - **Parameters:**
-  - `message`: The encrypted message (must include the 16-byte IV at the start).
-  - `secret`: The symmetric key used for encryption.
+  - `ikm`: Input keying material (`string`)
+  - `salt?`: Optional salt — defaults to 32 zero bytes if not provided (`string`)
+  - `info`: Context and application-specific information (`string`)
+  - `len`: Length of the output key in bytes (`number`)
 - **Returns:**
-  - `decryptedMessage`: The original message (`string`)
+  - `okm`: Output keying material as a binary string (`string`)
+
+#### Implementation Details:
+
+- Implements RFC 5869 (Extract-and-Expand)
+- Suitable for deriving multiple keys from a single shared secret (e.g. after ECDH)
+- Faster than PBKDF2 — not designed for password hashing
 
 #### Example:
 
 ```lua
-local encrypted = aes.cbc_encrypt("Hello world", "superduperultrasecretkey123")
-print(encrypted)
-
-local decrypted = aes.cbc_decrypt(encrypted, "superduperultrasecretkey123")
-print(decrypted) -- Output: Hello world
+local shared_secret = ecc.getSharedSecret(privA, pubB)
+local key = encoding.hkdf(shared_secret:toBytes(), nil, "encryption key", 32)
+print(#key) -- Output: 32
 ```
 
-### aes.generate_iv()
-
-Generate a Initialization Vector for `AES-CBC`
-
-- **Parameters:**
-  - `none`
-- **Returns:**
-  - `iv`: A random 16 bytes value
-
-#### Example:
-
-```lua
-local aes = require("Crypto.aes")
-
--- AES-CBC encryption/decryption example
-local key = "676767"
-local data = "Sensitive information"
-local iv = aes.generate_iv() -- 16 random bytes
-local encrypted = aes.cbc_encrypt(data, key, iv)
-local decrypted = aes.cbc_decrypt(encrypted, key)
-
-print(decrypted) -- Output: Sensitive information
-```
+---
 
 ## ChaCha20
+
+ChaCha20-Poly1305 is an **authenticated encryption** cipher (AEAD). Every encryption produces both a ciphertext and a 16-byte authentication tag. Decryption will fail if the message or tag has been tampered with.
 
 ### chacha.generateNonce()
 
 Generates a cryptographically secure 12-byte (96-bit) nonce for ChaCha20 encryption.
 
-- **Params:** None
+- **Parameters:** None
 - **Returns:**
-  - `nonce`: A unique 12-byte nonce (type: `string`)
+  - `nonce`: A unique 12-byte nonce (`string`)
 
 #### Implementation Details:
 
-- Uses Lua's `math.random()` to generate random bytes
-- Each byte ranges from 0-255
+- Reads from `/dev/random` via the `sys` API
 - Result is exactly 12 bytes long
 
 #### Example:
 
 ```lua
 local nonce = chacha.generateNonce()
-print(#nonce) -- 12
+print(#nonce) -- Output: 12
 ```
 
-### chacha.encrypt(message, secret, nonce)
+---
 
-Encrypts a message using the ChaCha20 stream cipher.
+### chacha.aead_encrypt(message, secret, nonce, aad)
 
-- **Params:**
-  - `message`: The message to encrypt (type: `string`)
-  - `secret`: The symmetric key (type: `string`). Will be hashed with SHA-256
-  - `nonce`: A unique 12-byte nonce (type: `string`)
+Encrypts a message and produces an authentication tag using ChaCha20-Poly1305.
+
+- **Parameters:**
+  - `message`: The message to encrypt (`string`)
+  - `secret`: The symmetric key (`string`) — derived internally using PBKDF2
+  - `nonce`: A unique 12-byte nonce (`string`)
+  - `aad?`: Optional additional authenticated data — authenticated but not encrypted (`string`)
 - **Returns:**
-  - `encryptedMessage`: The encrypted message (type: `string`)
+  - `ciphertext`: The encrypted message (`string`)
+  - `tag`: 16-byte Poly1305 authentication tag (`string`)
 
 #### Implementation Details:
 
-- Derives encryption key using SHA-256 of the secret
-- Uses 20 rounds of ChaCha20 algorithm
-- Automatically applies PKCS#7-style padding to 64-byte blocks
-- Processes blocks in parallel using `parallel.waitForAll()`
-- Each block uses a 64-byte counter (position) combined with nonce
+- Key is derived from `secret` using PBKDF2-HMAC-SHA256 with the nonce as salt
+- Poly1305 key is generated from the first ChaCha20 block (counter = 0)
+- Message encryption starts at counter = 1
+- AAD and ciphertext lengths are included in the MAC input per the AEAD spec
 
 #### Example:
 
 ```lua
+local chacha = require("Crypto.chacha20")
+
+local key = "supersecretkey"
 local nonce = chacha.generateNonce()
-local encrypted = chacha.encrypt("Hello world", "superduperultrasecretkey123", nonce)
-print(#encrypted) -- Length will be padded to multiple of 64 bytes
+
+local ciphertext, tag = chacha.aead_encrypt("Hello world", key, nonce)
+
+-- With optional AAD
+local ciphertext2, tag2 = chacha.aead_encrypt("Hello world", key, nonce, "extra context")
 ```
 
-### chacha.decrypt(encryptedMessage, secret, nonce)
+> **Never reuse the same nonce with the same key.** Always generate a fresh nonce per message.
 
-Decrypts a message that was encrypted using ChaCha20.
+---
 
-- **Params:**
-  - `encryptedMessage`: The encrypted message (type: `string`)
-  - `secret`: The symmetric key (type: `string`). Must be the same as used for encryption
-  - `nonce`: The same 12-byte nonce used for encryption (type: `string`)
+### chacha.aead_decrypt(ciphertext, secret, nonce, tag, aad)
+
+Decrypts a message and verifies its authentication tag using ChaCha20-Poly1305.
+
+- **Parameters:**
+  - `ciphertext`: The encrypted message (`string`)
+  - `secret`: The symmetric key used for encryption (`string`)
+  - `nonce`: The same 12-byte nonce used during encryption (`string`)
+  - `tag`: The 16-byte authentication tag returned by `aead_encrypt` (`string`)
+  - `aad?`: The same additional authenticated data used during encryption, if any (`string`)
 - **Returns:**
-  - `decryptedMessage`: The original message (type: `string`)
+  - `message`: The decrypted message (`string`), or `nil` if verification fails
+  - `err`: Error message if the tag doesn't match (`string`, or `nil`)
 
 #### Implementation Details:
 
-- Uses the same operation as encryption (XOR with keystream)
-- Automatically removes padding after decryption
-- **Crucial:** The nonce must be identical to the one used for encryption
+- Recomputes the Poly1305 tag before decrypting
+- If the computed tag doesn't match, returns `nil` and an error — **the ciphertext is never decrypted if integrity fails**
 
 #### Example:
 
 ```lua
-local decrypted = chacha.decrypt(encrypted, "superduperultrasecretkey123", nonce)
-print(decrypted) -- "Hello world"
+local decrypted, err = chacha.aead_decrypt(ciphertext, key, nonce, tag)
+
+if decrypted then
+    print(decrypted) -- Output: Hello world
+else
+    print("Decryption failed: " .. err)
+end
+
+-- With AAD
+local decrypted2 = chacha.aead_decrypt(ciphertext2, key, nonce, tag2, "extra context")
 ```
 
-## RSA
-
-### rsa.generateKeys(bits)
-
-Generates RSA asymmetric key pairs using parallel prime generation and Chinese Remainder Theorem (CRT) for optimization.
-
-- **Params:**
-  - `bits`: The bit length for prime generation (type: `number`)
-- **Returns:**
-  - `publicKey`: Table containing public exponent `e` and modulus `n` (type: `table`)
-  - `privateKey`: Table containing private key components for CRT optimization (type: `table`)
-
-#### Implementation Details:
-
-- Uses parallel generation of two primes `p` and `q` using `parallel.waitForAll()`
-- Implements Miller-Rabin primality test with bases {2, 3, 5, 7, 11}
-- Pre-computes small primes up to 2000 for efficient sieving
-- Uses public exponent `e = 65537` by default
-- Implements CRT parameters for faster decryption: `dP, dQ, qInv`
-
-#### Key Structure:
-
-```lua
--- Public Key: {e, n}
--- Private Key: {d, n, p, q, dP, dQ, qInv}
-```
-
-#### Example:
-
-```lua
-local publicKey, privateKey = rsa.generateKeys(32)
-print(publicKey[1])  -- e (public exponent)
-print(publicKey[2])  -- n (modulus)
-print(privateKey[1]) -- d (private exponent)
-```
-
-### rsa.encrypt(message, publicKey)
-
-Encrypts a message using RSA public key encryption.
-
-- **Params:**
-  - `message`: The message to encrypt (type: `number`, `string`, or `bignum`)
-  - `publicKey`: The public key table `{e, n}` (type: `table`)
-- **Returns:**
-  - `encryptedMessage`: The encrypted message as bignum (type: `bignum`)
-
-#### Implementation Details:
-
-- Automatically converts strings to bignum using byte representation
-- Validates that message is within range `[0, n]`
-- Uses modular exponentiation: `message^e mod n`
-
-#### Example:
-
-```lua
--- Encrypt a number
-local encrypted = rsa.encrypt(2025, publicKey)
-print(encrypted:toString())
-
--- Encrypt a string (converted to bytes)
-local encryptedText = rsa.encrypt("Hello", publicKey)
-```
-
-### rsa.decrypt(encryptedMessage, privateKey)
-
-Decrypts a message using RSA private key with CRT optimization.
-
-- **Params:**
-  - `encryptedMessage`: The encrypted message (type: `bignum` or `string`)
-  - `privateKey`: The private key table with CRT parameters (type: `table`)
-- **Returns:**
-  - `decryptedMessage`: The original message as string (type: `string`)
-
-#### Implementation Details:
-
-- Uses Chinese Remainder Theorem for faster decryption:
-  - `m1 = c^dP mod p`
-  - `m2 = c^dQ mod q`
-  - `h = qInv × (m1 - m2) mod p`
-  - `m = m2 + h × q`
-- Falls back to standard decryption if CRT parameters are missing
-- Automatically converts bignum result back to string
-
-#### Example:
-
-```lua
-local decrypted = rsa.decrypt(encrypted, privateKey)
-print(decrypted) -- Original message
-```
+---
 
 ## SHA-256
 
@@ -256,33 +251,44 @@ Computes the SHA-256 hash of a given message.
 - **Parameters:**
   - `message`: The message to hash (`string`)
 - **Returns:**
-  - `hexDigest`: The hash in hexadecimal format (64 characters)
-  - `binDigest`: The hash in binary format (32 bytes)
+  - `hexDigest`: The hash in hexadecimal format (64 characters) (`string`)
+  - `binDigest`: The hash in binary format (32 bytes) (`string`)
 
 #### Example:
 
 ```lua
+local sha = require("Crypto.sha")
+
 local hex, bin = sha.sha256("Hello world")
-print("Hex:", hex) -- Output: b94d27b9934d3e08a52e52d7da7debac...
-print("Bin Length:", #bin) -- Output: 32
+print("Hex:", hex)
+print("Bin length:", #bin) -- Output: 32
 ```
 
-### sha.hmac_sha256(key, message)
+---
 
-Computes the Hash-based Message Authentication Code (HMAC) using SHA-256.
+### sha.hmac_sha256(key, message, bin)
+
+Computes the HMAC-SHA256 of a message using a secret key.
 
 - **Parameters:**
-  - `key`: The secret key for the HMAC (`string`)
+  - `key`: The secret key (`string`)
   - `message`: The message to authenticate (`string`)
+  - `bin?`: If `true`, returns binary output instead of hex (`boolean`, default: `false`)
 - **Returns:**
-  - `hmacDigest`: The HMAC digest in hexadecimal format.
+  - `hmacDigest`: The HMAC digest — hex string by default, binary if `bin` is `true` (`string`)
 
 #### Example:
 
 ```lua
-local hmac = sha.hmac_sha256("secretkey", "data to authenticate")
-print("HMAC:", hmac)
+local hmac_hex = sha.hmac_sha256("secretkey", "data to authenticate")
+print("HMAC:", hmac_hex)
+
+-- Binary output (useful as input to other crypto functions)
+local hmac_bin = sha.hmac_sha256("secretkey", "data to authenticate", true)
+print("HMAC bin length:", #hmac_bin) -- Output: 32
 ```
+
+---
 
 ## secp256k1 (ECC)
 
@@ -292,92 +298,110 @@ Full implementation of the **secp256k1** elliptic curve with Key Exchange (ECDH)
 
 Generates a valid random private key for the curve.
 
+- **Parameters:** None
 - **Returns:**
-  - `privateKey`: A `bignum` representing the private key.
+  - `privateKey`: A `bignum` in the range `[1, N-1]` where N is the curve order
+
+#### Implementation Details:
+
+- Reads random bytes from `/dev/random` via the `sys` API
+- Result is guaranteed to be a valid scalar for secp256k1
+
+---
 
 ### ecc.getPublicKey(privKey)
 
-Calculates the public key point from the private key.
+Calculates the public key point from a private key.
 
 - **Parameters:**
   - `privKey`: The private key (`bignum`)
 - **Returns:**
-  - `publicKey`: A table with affine coordinates `{x = bignum, y = bignum}`.
+  - `publicKey`: Affine point `{x = bignum, y = bignum}` on the curve
+
+---
 
 ### ecc.getSharedSecret(myPrivKey, theirPubKey)
 
-Performs Elliptic Curve Diffie-Hellman (ECDH) to compute a symmetric shared secret.
+Performs ECDH to compute a shared secret between two parties.
 
 - **Parameters:**
   - `myPrivKey`: Your private key (`bignum`)
-  - `theirPubKey`: The other participant's public key (`{x, y}` table of `bignum`)
+  - `theirPubKey`: The other party's public key (`{x, y}` table of `bignum`)
 - **Returns:**
-  - `sharedSecret`: A `bignum` (X-coordinate of the resulting point) which is the shared secret.
+  - `sharedSecret`: The X-coordinate of the resulting point (`bignum`), or `nil` if the public key is invalid
+
+#### Implementation Details:
+
+- Validates that `theirPubKey` lies on the curve before computing
+- The shared secret is the X-coordinate of `myPrivKey × theirPubKey`
+
+---
 
 ### ecc.sign(privKey, message)
 
-Generates an ECDSA digital signature for a message. Uses **RFC 6979** deterministic nonce generation (HMAC-SHA256).
+Generates a deterministic ECDSA signature for a message.
 
 - **Parameters:**
   - `privKey`: The signer's private key (`bignum`)
-  - `message`: The message to be signed (`string`)
+  - `message`: The message to sign (`string`)
 - **Returns:**
-  - `signature`: A table `{r = bignum, s = bignum}`.
+  - `signature`: A table `{r = bignum, s = bignum}`
+
+#### Implementation Details:
+
+- Hashes the message with SHA-256 before signing
+- Uses **RFC 6979** deterministic nonce generation via HMAC-SHA256 — no randomness needed
+- `s` is always normalized to the lower half of N to prevent signature malleability
+
+---
 
 ### ecc.verify(pubKey, message, signature)
 
-Verifies an ECDSA digital signature against a message and a public key.
+Verifies an ECDSA signature against a message and public key.
 
 - **Parameters:**
   - `pubKey`: The signer's public key (`{x, y}` table of `bignum`)
-  - `message`: The original message that was signed (`string`)
-  - `signature`: The `{r, s}` signature generated previously.
+  - `message`: The original signed message (`string`)
+  - `signature`: The `{r, s}` signature to verify (`table`)
 - **Returns:**
-  - `verificationResult`: A table with `{result = boolean, message = string}`.
+  - `result`: A table `{result = boolean, message = string}`
 
-#### Example of ECDSA and ECDH:
+#### Example:
 
 ```lua
 local ecc = require("Crypto.secp256k1")
-local message = "The shared secret is vital."
-local sleep_time = 5 -- Use a short sleep time for the example
 
--- 1. ECDH Demo
+-- ECDH
 local privA = ecc.generatePrivateKey()
-local pubA = ecc.getPublicKey(privA)
+local pubA  = ecc.getPublicKey(privA)
 local privB = ecc.generatePrivateKey()
-local pubB = ecc.getPublicKey(privB)
+local pubB  = ecc.getPublicKey(privB)
 
 local secretA = ecc.getSharedSecret(privA, pubB)
 local secretB = ecc.getSharedSecret(privB, pubA)
+print("Shared secret match:", secretA:toString() == secretB:toString()) -- true
 
-print("ECDH Secret Match:", secretA:toString() == secretB:toString())
--- Output: ECDH Secret Match: true
-
--- 2. ECDSA Demo
-os.sleep(sleep_time) -- Yielding is necessary for CPU-intensive ops
+-- ECDSA
+local message = "The shared secret is vital."
 
 local signature = ecc.sign(privA, message)
-print("Signature R:", signature.r:toString():sub(1, 20) .. "...")
-
-os.sleep(sleep_time) -- Yielding is necessary for CPU-intensive ops
 
 local verification = ecc.verify(pubA, message, signature)
-print("ECDSA Verification Succeeded:", verification.result)
--- Output: ECDSA Verification Succeeded: true
+print("Valid:", verification.result)   -- Output: true
+print("Info:", verification.message)  -- Output: Signature verification result
 ```
+
+---
 
 ## Additional Notes
 
-- **AES Key Length:** The `aes.cbc_encrypt` function now uses the full **32 bytes** (256 bits) of the SHA-256 hash as the key, ensuring true **AES-256** strength.
-- **SHA-256 Return:** The `sha.sha256` function now returns both the **hexadecimal** and **binary** digests for greater flexibility.
-- I know RSA totally supports huge keys (1024+), but we're talking ComputerCraft here, fam. I seriously recommend not tryna generate keys bigger than 128 bits. Is that insecure? Duh, but I can't work miracles either, lol.
-- **secp256k1 Performance:** Elliptic Curve operations, while generally faster than RSA in standard environments, are still computationally intensive in Lua/CC:T. Please be patient with key generation and signature operations.
-- **IV Generation:** If the IV is not provided to AES, a default IV is generated using `math.random()`. **This is not cryptographically secure.**
+- **SHA-256 returns two values:** `sha.sha256` returns both hex and binary — use the binary one when passing to other crypto functions.
+- **PBKDF2 vs HKDF:** Use `pbkdf2` for password-based key derivation (slow by design). Use `hkdf` to expand an already-strong secret like a shared ECDH result (fast).
+- **RSA and AES** are not part of this library anymore. Good riddance.
 
 ## Security Considerations
 
 - This library is designed for educational purposes and ComputerCraft environments.
-- For production security in real world, consider using established cryptographic libraries.
-- Never reuse IVs/nonces with the same encryption key.
-- The quality of randomness depends on `math.random()` - use better entropy sources for critical applications.
+- For production security in the real world, use established cryptographic libraries.
+- Never reuse nonces with the same encryption key, especially with ChaCha20.
+- Randomness is sourced from `/dev/random` via the `sys` API — quality depends on your ComputerCraft environment.
